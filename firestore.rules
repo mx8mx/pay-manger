@@ -1,0 +1,448 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Global Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        (
+          request.auth.token.email == '1996firebase1@gmail.com' ||
+          exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        );
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidListing(data) {
+      return data.keys().hasAll([
+          'title', 'description', 'displayPrice', 'currency',
+          'provinceId', 'categoryId', 'status', 'refNumber',
+          'authorUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'title', 'description', 'specs', 'images', 'displayPrice',
+          'currency', 'provinceId', 'categoryId', 'tagIds', 'customFields',
+          'status', 'refNumber', 'cta', 'authorUid', 'createdAt', 'updatedAt', 'soldAt'
+        ]) &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+        data.description is string && data.description.size() >= 1 && data.description.size() <= 4000 &&
+        (!('specs' in data) || (data.specs is string && data.specs.size() <= 2000)) &&
+        (!('images' in data) || (data.images is list && data.images.size() <= 10 && (data.images.size() == 0 || (data.images[0] is string && data.images[0].size() <= 700000)))) &&
+        data.displayPrice is number && data.displayPrice >= 0 &&
+        data.currency is string && data.currency.size() <= 10 && data.currency in ['IQD', 'USD'] &&
+        data.provinceId is string && isValidId(data.provinceId) &&
+        data.categoryId is string && isValidId(data.categoryId) &&
+        (!('tagIds' in data) || (data.tagIds is list && data.tagIds.size() <= 10 && (data.tagIds.size() == 0 || (data.tagIds[0] is string && data.tagIds[0].size() <= 64)))) &&
+        (!('customFields' in data) || (data.customFields is map && data.customFields.size() <= 25)) &&
+        data.status is string && data.status.size() <= 20 && data.status in ['available', 'reserved', 'sold', 'archived'] &&
+        data.refNumber is string && data.refNumber.size() >= 1 && data.refNumber.size() <= 20 &&
+        (!('cta' in data) || (data.cta is map && data.cta.size() <= 12)) &&
+        data.authorUid is string && isValidId(data.authorUid) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        (!('soldAt' in data) || data.soldAt is timestamp);
+    }
+
+    function isValidListingPrivate(data) {
+      return data.keys().hasAll([
+          'sellerName', 'sellerPhone', 'sellerAskingPrice',
+          'commissionType', 'commissionValue', 'commissionAmount',
+          'commissionPaid', 'authorUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'sellerName', 'sellerPhone', 'sellerProfileUrl', 'sellerAskingPrice',
+          'finalSalePrice', 'commissionType', 'commissionValue', 'commissionAmount',
+          'commissionPaid', 'commissionPaidAt', 'notes', 'lastContactAt',
+          'authorUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.sellerName is string && data.sellerName.size() >= 1 && data.sellerName.size() <= 120 &&
+        data.sellerPhone is string && data.sellerPhone.size() >= 1 && data.sellerPhone.size() <= 30 &&
+        (!('sellerProfileUrl' in data) || (data.sellerProfileUrl is string && data.sellerProfileUrl.size() <= 500)) &&
+        data.sellerAskingPrice is number && data.sellerAskingPrice >= 0 &&
+        (!('finalSalePrice' in data) || (data.finalSalePrice is number && data.finalSalePrice >= 0)) &&
+        data.commissionType is string && data.commissionType.size() <= 20 && data.commissionType in ['fixed', 'percentage'] &&
+        data.commissionValue is number && data.commissionValue >= 0 &&
+        data.commissionAmount is number && data.commissionAmount >= 0 &&
+        data.commissionPaid is string && data.commissionPaid.size() <= 20 && data.commissionPaid in ['yes', 'no', 'partial'] &&
+        (!('commissionPaidAt' in data) || (data.commissionPaidAt is string && data.commissionPaidAt.size() <= 64)) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 4000)) &&
+        (!('lastContactAt' in data) || (data.lastContactAt is string && data.lastContactAt.size() <= 64)) &&
+        data.authorUid is string && isValidId(data.authorUid) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidListingStats(data) {
+      return data.keys().hasAll(['clicks', 'secondaryClicks', 'updatedAt']) &&
+        data.keys().hasOnly(['clicks', 'secondaryClicks', 'updatedAt']) &&
+        data.clicks is int && data.clicks >= 0 &&
+        data.secondaryClicks is int && data.secondaryClicks >= 0 &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['name', 'slug', 'icon', 'order', 'visible', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['name', 'slug', 'icon', 'order', 'visible', 'allowedTagIds', 'customFieldDefs', 'createdAt', 'updatedAt']) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+        data.slug is string && isValidId(data.slug) && data.slug.size() <= 80 &&
+        data.icon is string && data.icon.size() >= 1 && data.icon.size() <= 50 &&
+        data.order is number &&
+        data.visible is bool &&
+        (!('allowedTagIds' in data) || (data.allowedTagIds is list && data.allowedTagIds.size() <= 50 && (data.allowedTagIds.size() == 0 || (data.allowedTagIds[0] is string && data.allowedTagIds[0].size() <= 64)))) &&
+        (!('customFieldDefs' in data) || (data.customFieldDefs is list && data.customFieldDefs.size() <= 20 && (data.customFieldDefs.size() == 0 || data.customFieldDefs[0] is map))) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidTag(data) {
+      return data.keys().hasAll(['name', 'slug', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['name', 'slug', 'createdAt', 'updatedAt']) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+        data.slug is string && isValidId(data.slug) && data.slug.size() <= 60 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCategoryTagRelation(data) {
+      return data.keys().hasAll(['categoryId', 'tagId', 'createdAt']) &&
+        data.keys().hasOnly(['categoryId', 'tagId', 'createdAt']) &&
+        data.categoryId is string && isValidId(data.categoryId) && data.categoryId.size() <= 64 &&
+        data.tagId is string && isValidId(data.tagId) && data.tagId.size() <= 64 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidProvince(data) {
+      return data.keys().hasAll(['name', 'order', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['name', 'order', 'createdAt', 'updatedAt']) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+        data.order is number &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidLead(data) {
+      return data.keys().hasAll(['name', 'phone', 'listingId', 'status', 'authorUid', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['name', 'phone', 'listingId', 'status', 'notes', 'referredToSellerAt', 'authorUid', 'createdAt', 'updatedAt']) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        data.phone is string && data.phone.size() >= 1 && data.phone.size() <= 30 &&
+        data.listingId is string && isValidId(data.listingId) &&
+        data.status is string && data.status.size() <= 20 && data.status in ['new', 'referred', 'negotiating', 'bought', 'cancelled'] &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 2000)) &&
+        (!('referredToSellerAt' in data) || (data.referredToSellerAt is string && data.referredToSellerAt.size() <= 64)) &&
+        data.authorUid is string && isValidId(data.authorUid) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSeller(data) {
+      return data.keys().hasAll(['name', 'phone', 'authorUid', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['name', 'phone', 'profileUrl', 'notes', 'authorUid', 'createdAt', 'updatedAt']) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        data.phone is string && data.phone.size() >= 1 && data.phone.size() <= 30 &&
+        (!('profileUrl' in data) || (data.profileUrl is string && data.profileUrl.size() <= 500)) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 2000)) &&
+        data.authorUid is string && isValidId(data.authorUid) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidActivityLog(data) {
+      return data.keys().hasAll(['action', 'targetId', 'actorUid', 'actorEmail', 'createdAt']) &&
+        data.keys().hasOnly(['action', 'targetId', 'details', 'actorUid', 'actorEmail', 'createdAt']) &&
+        data.action is string && data.action.size() >= 1 && data.action.size() <= 120 &&
+        data.targetId is string && data.targetId.size() >= 1 && data.targetId.size() <= 128 &&
+        (!('details' in data) || (data.details is string && data.details.size() <= 1000)) &&
+        data.actorUid is string && isValidId(data.actorUid) &&
+        data.actorEmail is string && data.actorEmail.size() >= 1 && data.actorEmail.size() <= 160 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidPublicSettings(data) {
+      return data.keys().hasAll(['siteName', 'brokerPhone', 'defaultCurrency', 'hideSoldListings', 'defaultCtaType', 'defaultCtaLabel', 'updatedAt']) &&
+        data.keys().hasOnly(['siteName', 'brokerPhone', 'defaultCurrency', 'hideSoldListings', 'defaultCtaType', 'defaultCtaLabel', 'defaultCtaMessage', 'defaultCtaColor', 'updatedAt']) &&
+        data.siteName is string && data.siteName.size() >= 1 && data.siteName.size() <= 100 &&
+        data.brokerPhone is string && data.brokerPhone.size() >= 1 && data.brokerPhone.size() <= 30 &&
+        data.defaultCurrency is string && data.defaultCurrency.size() <= 10 && data.defaultCurrency in ['IQD', 'USD'] &&
+        data.hideSoldListings is bool &&
+        data.defaultCtaType is string && data.defaultCtaType.size() <= 20 && data.defaultCtaType in ['whatsapp', 'call', 'messenger', 'telegram', 'link', 'none'] &&
+        data.defaultCtaLabel is string && data.defaultCtaLabel.size() >= 1 && data.defaultCtaLabel.size() <= 80 &&
+        (!('defaultCtaMessage' in data) || (data.defaultCtaMessage is string && data.defaultCtaMessage.size() <= 500)) &&
+        (!('defaultCtaColor' in data) || (data.defaultCtaColor is string && data.defaultCtaColor.size() <= 20)) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPrivateSettings(data) {
+      return data.keys().hasAll(['fbPostTemplate', 'staleListingDays', 'updatedAt']) &&
+        data.keys().hasOnly(['fbPostTemplate', 'staleListingDays', 'updatedAt']) &&
+        data.fbPostTemplate is string && data.fbPostTemplate.size() >= 1 && data.fbPostTemplate.size() <= 2000 &&
+        data.staleListingDays is number && data.staleListingDays >= 1 && data.staleListingDays <= 365 &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidAdminUser(data) {
+      return data.keys().hasAll(['email', 'name', 'role', 'canViewFinancials', 'canDelete', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['email', 'name', 'role', 'canViewFinancials', 'canDelete', 'createdAt', 'updatedAt']) &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+        data.role is string && data.role.size() <= 20 && data.role in ['admin', 'assistant'] &&
+        data.canViewFinancials is bool &&
+        data.canDelete is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // 4. Collection Rules
+    match /listings/{listingId} {
+      allow get: if isValidId(listingId) && (existing().status in ['available', 'reserved', 'sold'] || isAdmin());
+      allow list: if existing().status in ['available', 'reserved', 'sold'] || isAdmin();
+      allow create: if isSignedIn() && isValidId(listingId) && isValidListing(incoming()) &&
+        incoming().authorUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow update: if isSignedIn() && isValidId(listingId) && isValidListing(incoming()) &&
+        incoming().authorUid == existing().authorUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isAdmin() && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'soldAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'description', 'specs', 'images', 'displayPrice',
+            'currency', 'provinceId', 'categoryId', 'tagIds', 'customFields',
+            'status', 'refNumber', 'cta', 'updatedAt', 'soldAt'
+          ])
+        );
+      allow delete: if isSignedIn() && isValidId(listingId) && isAdmin();
+    }
+
+    match /listings_private/{listingId} {
+      allow get: if isSignedIn() && isValidId(listingId) && isAdmin();
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(listingId) && isValidListingPrivate(incoming()) &&
+        incoming().authorUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow update: if isSignedIn() && isValidId(listingId) && isValidListingPrivate(incoming()) &&
+        incoming().authorUid == existing().authorUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isAdmin() &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'sellerName', 'sellerPhone', 'sellerProfileUrl', 'sellerAskingPrice',
+          'finalSalePrice', 'commissionType', 'commissionValue', 'commissionAmount',
+          'commissionPaid', 'commissionPaidAt', 'notes', 'lastContactAt', 'updatedAt'
+        ]);
+      allow delete: if isSignedIn() && isValidId(listingId) && isAdmin();
+    }
+
+    match /listing_stats/{listingId} {
+      allow get: if isSignedIn() && isValidId(listingId) && isAdmin();
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isValidId(listingId) && isValidListingStats(incoming()) &&
+        incoming().clicks <= 1 &&
+        incoming().secondaryClicks <= 1 &&
+        incoming().updatedAt == request.time &&
+        (exists(/databases/$(database)/documents/listings/$(listingId)) ||
+         existsAfter(/databases/$(database)/documents/listings/$(listingId)));
+      allow update: if isValidId(listingId) && isValidListingStats(incoming()) &&
+        incoming().updatedAt == request.time && (
+          (incoming().diff(existing()).affectedKeys().hasOnly(['clicks', 'updatedAt']) &&
+           incoming().clicks == existing().clicks + 1 &&
+           incoming().secondaryClicks == existing().secondaryClicks) ||
+          (incoming().diff(existing()).affectedKeys().hasOnly(['secondaryClicks', 'updatedAt']) &&
+           incoming().secondaryClicks == existing().secondaryClicks + 1 &&
+           incoming().clicks == existing().clicks) ||
+          isAdmin()
+        );
+      allow delete: if isSignedIn() && isValidId(listingId) && isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow get: if isValidId(categoryId) && (existing().visible == true || isAdmin());
+      allow list: if existing().visible == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(categoryId) && isValidCategory(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow update: if isSignedIn() && isValidId(categoryId) && isValidCategory(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isAdmin() &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'slug', 'icon', 'order', 'visible', 'allowedTagIds', 'customFieldDefs', 'updatedAt'
+        ]);
+      allow delete: if isSignedIn() && isValidId(categoryId) && isAdmin();
+    }
+
+    match /tags/{tagId} {
+      allow get: if isValidId(tagId) && (existing().slug is string || isAdmin());
+      allow list: if existing().slug is string || isAdmin();
+      allow create: if isSignedIn() && isValidId(tagId) && isValidTag(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow update: if isSignedIn() && isValidId(tagId) && isValidTag(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isAdmin() &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'slug', 'updatedAt']);
+      allow delete: if isSignedIn() && isValidId(tagId) && isAdmin();
+    }
+
+    match /category_tags/{relationId} {
+      allow get: if isValidId(relationId) && (existing().categoryId is string || isAdmin());
+      allow list: if existing().categoryId is string || isAdmin();
+      allow create: if isSignedIn() && isValidId(relationId) && isValidCategoryTagRelation(incoming()) &&
+        incoming().createdAt == request.time &&
+        (exists(/databases/$(database)/documents/categories/$(incoming().categoryId)) ||
+         existsAfter(/databases/$(database)/documents/categories/$(incoming().categoryId))) &&
+        (exists(/databases/$(database)/documents/tags/$(incoming().tagId)) ||
+         existsAfter(/databases/$(database)/documents/tags/$(incoming().tagId))) &&
+        isAdmin();
+      allow update: if isSignedIn() && isValidId(relationId) && isValidCategoryTagRelation(incoming()) &&
+        incoming().categoryId == existing().categoryId &&
+        incoming().tagId == existing().tagId &&
+        isAdmin() &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['createdAt']);
+      allow delete: if isSignedIn() && isValidId(relationId) && isAdmin();
+    }
+
+    match /provinces/{provinceId} {
+      allow get: if isValidId(provinceId) && (existing().order >= 0 || isAdmin());
+      allow list: if existing().order >= 0 || isAdmin();
+      allow create: if isSignedIn() && isValidId(provinceId) && isValidProvince(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow update: if isSignedIn() && isValidId(provinceId) && isValidProvince(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isAdmin() &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'order', 'updatedAt']);
+      allow delete: if isSignedIn() && isValidId(provinceId) && isAdmin();
+    }
+
+    match /leads/{leadId} {
+      allow get: if isSignedIn() && isValidId(leadId) && isAdmin();
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(leadId) && isValidLead(incoming()) &&
+        incoming().authorUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (exists(/databases/$(database)/documents/listings/$(incoming().listingId)) ||
+         existsAfter(/databases/$(database)/documents/listings/$(incoming().listingId))) &&
+        isAdmin();
+      allow update: if isSignedIn() && isValidId(leadId) && isValidLead(incoming()) &&
+        incoming().authorUid == existing().authorUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isAdmin() &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'phone', 'listingId', 'status', 'notes', 'referredToSellerAt', 'updatedAt'
+        ]);
+      allow delete: if isSignedIn() && isValidId(leadId) && isAdmin();
+    }
+
+    match /sellers/{sellerId} {
+      allow get: if isSignedIn() && isValidId(sellerId) && isAdmin();
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(sellerId) && isValidSeller(incoming()) &&
+        incoming().authorUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow update: if isSignedIn() && isValidId(sellerId) && isValidSeller(incoming()) &&
+        incoming().authorUid == existing().authorUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isAdmin() &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'phone', 'profileUrl', 'notes', 'updatedAt'
+        ]);
+      allow delete: if isSignedIn() && isValidId(sellerId) && isAdmin();
+    }
+
+    match /activity_log/{logId} {
+      allow get: if isSignedIn() && isValidId(logId) && isAdmin();
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(logId) && isValidActivityLog(incoming()) &&
+        incoming().actorUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        isAdmin();
+      allow update: if false;
+      allow delete: if isSignedIn() && isValidId(logId) && isAdmin();
+    }
+
+    match /settings/public {
+      allow get: if true;
+      allow list: if false;
+      allow create: if isSignedIn() && isValidPublicSettings(incoming()) &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow update: if isSignedIn() && isValidPublicSettings(incoming()) &&
+        incoming().updatedAt == request.time &&
+        isAdmin() &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'siteName', 'brokerPhone', 'defaultCurrency', 'hideSoldListings',
+          'defaultCtaType', 'defaultCtaLabel', 'defaultCtaMessage', 'defaultCtaColor', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /settings/private {
+      allow get: if isSignedIn() && isAdmin();
+      allow list: if false;
+      allow create: if isSignedIn() && isValidPrivateSettings(incoming()) &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow update: if isSignedIn() && isValidPrivateSettings(incoming()) &&
+        incoming().updatedAt == request.time &&
+        isAdmin() &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['fbPostTemplate', 'staleListingDays', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /admins/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(userId) && isValidAdminUser(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        request.auth.token.email_verified == true &&
+        request.auth.token.email == '1996firebase1@gmail.com';
+      allow update: if isSignedIn() && isValidId(userId) && isValidAdminUser(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        request.auth.token.email_verified == true &&
+        request.auth.token.email == '1996firebase1@gmail.com' &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'email', 'name', 'role', 'canViewFinancials', 'canDelete', 'updatedAt'
+        ]);
+      allow delete: if isSignedIn() && isValidId(userId) &&
+        request.auth.token.email_verified == true &&
+        request.auth.token.email == '1996firebase1@gmail.com';
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "وسيط السوق — منصة الوساطة العقارية والتجارية",
+  "description": "منصة وساطة حديثة وموثوقة لعرض العقارات والسيارات والأراضي والسلع مع لوحة تحكم خاصة لإدارة البائعين والعمولات والمشترين.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

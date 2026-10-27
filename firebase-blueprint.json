@@ -1,0 +1,258 @@
+{
+  "entities": {
+    "Listing": {
+      "title": "Listing",
+      "description": "Public listing document visible to all visitors without any private seller details.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 160, "description": "Listing title" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 4000, "description": "Public description" },
+        "specs": { "type": "string", "maxLength": 2000, "description": "Formatted specifications summary" },
+        "images": { "type": "array", "description": "Array of image URLs or WebP data URLs (max 10)" },
+        "displayPrice": { "type": "number", "description": "Publicly displayed price" },
+        "currency": { "type": "string", "enum": ["IQD", "USD"], "maxLength": 10, "description": "Price currency" },
+        "provinceId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "categoryId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "tagIds": { "type": "array", "description": "Array of foreign key tag IDs (max 10)" },
+        "customFields": { "type": "object", "description": "Key-value map of category custom fields" },
+        "status": { "type": "string", "enum": ["available", "reserved", "sold", "archived"], "maxLength": 20 },
+        "refNumber": { "type": "string", "minLength": 1, "maxLength": 20, "description": "Short reference number e.g. #1024" },
+        "cta": { "type": "object", "description": "Customizable public contact button settings" },
+        "authorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "soldAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "displayPrice", "currency", "provinceId", "categoryId", "status", "refNumber", "authorUid", "createdAt", "updatedAt"]
+    },
+    "ListingPrivate": {
+      "title": "ListingPrivate",
+      "description": "Strictly private seller and commission record accessible only to admins.",
+      "type": "object",
+      "properties": {
+        "sellerName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "sellerPhone": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "sellerProfileUrl": { "type": "string", "maxLength": 500 },
+        "sellerAskingPrice": { "type": "number" },
+        "finalSalePrice": { "type": "number" },
+        "commissionType": { "type": "string", "enum": ["fixed", "percentage"], "maxLength": 20 },
+        "commissionValue": { "type": "number" },
+        "commissionAmount": { "type": "number" },
+        "commissionPaid": { "type": "string", "enum": ["yes", "no", "partial"], "maxLength": 20 },
+        "commissionPaidAt": { "type": "string", "maxLength": 64 },
+        "notes": { "type": "string", "maxLength": 4000 },
+        "lastContactAt": { "type": "string", "maxLength": 64 },
+        "authorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sellerName", "sellerPhone", "sellerAskingPrice", "commissionType", "commissionValue", "commissionAmount", "commissionPaid", "authorUid", "createdAt", "updatedAt"]
+    },
+    "ListingStats": {
+      "title": "ListingStats",
+      "description": "Click tracking counter for public CTA buttons.",
+      "type": "object",
+      "properties": {
+        "clicks": { "type": "number", "description": "Total CTA clicks" },
+        "secondaryClicks": { "type": "number", "description": "Secondary CTA clicks" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clicks", "secondaryClicks", "updatedAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Marketplace category with explicit ID, name, and relational allowedTagIds.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "slug": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "icon": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "order": { "type": "number" },
+        "visible": { "type": "boolean" },
+        "allowedTagIds": { "type": "array" },
+        "customFieldDefs": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "slug", "icon", "order", "visible", "createdAt", "updatedAt"]
+    },
+    "Tag": {
+      "title": "Tag",
+      "description": "Pre-prepared filterable product tag with explicit ID and name.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "slug": { "type": "string", "minLength": 1, "maxLength": 60, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "slug", "createdAt", "updatedAt"]
+    },
+    "CategoryTagRelation": {
+      "title": "CategoryTagRelation",
+      "description": "Relational junction record linking a Category ID to a Tag ID (many-to-many).",
+      "type": "object",
+      "properties": {
+        "categoryId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "tagId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["categoryId", "tagId", "createdAt"]
+    },
+    "Province": {
+      "title": "Province",
+      "description": "Iraqi province record.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "order", "createdAt", "updatedAt"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Interested buyer record managed privately by the broker.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "phone": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "listingId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "status": { "type": "string", "enum": ["new", "referred", "negotiating", "bought", "cancelled"], "maxLength": 20 },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "referredToSellerAt": { "type": "string", "maxLength": 64 },
+        "authorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "phone", "listingId", "status", "authorUid", "createdAt", "updatedAt"]
+    },
+    "Seller": {
+      "title": "Seller",
+      "description": "Private directory of sellers.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "phone": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "profileUrl": { "type": "string", "maxLength": 500 },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "authorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "phone", "authorUid", "createdAt", "updatedAt"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Audit log of administrative actions.",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "targetId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "details": { "type": "string", "maxLength": 1000 },
+        "actorUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorEmail": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["action", "targetId", "actorUid", "actorEmail", "createdAt"]
+    },
+    "PublicSettings": {
+      "title": "PublicSettings",
+      "description": "Publicly readable settings for default broker contact and storefront display.",
+      "type": "object",
+      "properties": {
+        "siteName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "brokerPhone": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "defaultCurrency": { "type": "string", "enum": ["IQD", "USD"], "maxLength": 10 },
+        "hideSoldListings": { "type": "boolean" },
+        "defaultCtaType": { "type": "string", "enum": ["whatsapp", "call", "messenger", "telegram", "link", "none"], "maxLength": 20 },
+        "defaultCtaLabel": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "defaultCtaMessage": { "type": "string", "maxLength": 500 },
+        "defaultCtaColor": { "type": "string", "maxLength": 20 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["siteName", "brokerPhone", "defaultCurrency", "hideSoldListings", "defaultCtaType", "defaultCtaLabel", "updatedAt"]
+    },
+    "PrivateSettings": {
+      "title": "PrivateSettings",
+      "description": "Admin-only configuration such as Facebook post template and stale alert threshold.",
+      "type": "object",
+      "properties": {
+        "fbPostTemplate": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "staleListingDays": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fbPostTemplate", "staleListingDays", "updatedAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized admin or assistant user record.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "role": { "type": "string", "enum": ["admin", "assistant"], "maxLength": 20 },
+        "canViewFinancials": { "type": "boolean" },
+        "canDelete": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "name", "role", "canViewFinancials", "canDelete", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/listings/{listingId}": {
+      "schema": { "$ref": "#/entities/Listing" },
+      "description": "Public listings visible to buyers"
+    },
+    "/listings_private/{listingId}": {
+      "schema": { "$ref": "#/entities/ListingPrivate" },
+      "description": "Private seller details and commission data for each listing"
+    },
+    "/listing_stats/{listingId}": {
+      "schema": { "$ref": "#/entities/ListingStats" },
+      "description": "CTA click counters per listing"
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Dynamic product categories"
+    },
+    "/tags/{tagId}": {
+      "schema": { "$ref": "#/entities/Tag" },
+      "description": "Pre-prepared product tags"
+    },
+    "/category_tags/{relationId}": {
+      "schema": { "$ref": "#/entities/CategoryTagRelation" },
+      "description": "Relational junction table linking categories and tags"
+    },
+    "/provinces/{provinceId}": {
+      "schema": { "$ref": "#/entities/Province" },
+      "description": "Iraqi provinces"
+    },
+    "/leads/{leadId}": {
+      "schema": { "$ref": "#/entities/Lead" },
+      "description": "Private buyer leads"
+    },
+    "/sellers/{sellerId}": {
+      "schema": { "$ref": "#/entities/Seller" },
+      "description": "Private sellers directory"
+    },
+    "/activity_log/{logId}": {
+      "schema": { "$ref": "#/entities/ActivityLog" },
+      "description": "Private administrative audit log"
+    },
+    "/settings/public": {
+      "schema": { "$ref": "#/entities/PublicSettings" },
+      "description": "Public storefront and default CTA settings"
+    },
+    "/settings/private": {
+      "schema": { "$ref": "#/entities/PrivateSettings" },
+      "description": "Private broker templates and alert settings"
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Authorized admin and assistant accounts"
+    }
+  }
+}

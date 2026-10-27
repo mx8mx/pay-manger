@@ -1,0 +1,27 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAdmin() {
+      return request.auth != null &&
+        request.auth.token.email_verified == true &&
+        (
+          request.auth.token.email == '1996firebase1@gmail.com' ||
+          firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid))
+        );
+    }
+
+    match /listings/{listingId}/{fileName} {
+      // القراءة عامة للصور
+      allow read: if true;
+      // الرفع للمدير فقط، مع حد للحجم (2MB) والنوع (صور فقط)
+      allow write: if isAdmin() &&
+        request.resource.size <= 2 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

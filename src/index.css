@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #FAF8F5;
+  --surface: #FFFFFF;
+  --surface-2: #F3EFE9;
+  --border: #E7E1D8;
+  --text: #1C1917;
+  --text-muted: #6B645B;
+  --primary: #0F766E;
+  --primary-hover: #0B5F58;
+  --primary-soft: #E3F2F0;
+  --accent: #D97706;
+  --whatsapp: #25D366;
+
+  /* Status Colors */
+  --status-available-bg: #DCFCE7;
+  --status-available-text: #166534;
+  --status-reserved-bg: #FEF3C7;
+  --status-reserved-text: #92400E;
+  --status-sold-bg: #E7E5E4;
+  --status-sold-text: #44403C;
+  --status-archived-bg: #F5F5F4;
+  --status-archived-text: #78716C;
+  --danger: #DC2626;
+}
+
+@theme {
+  --font-sans: "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border-warm: var(--border);
+  --color-text-main: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
+  --color-whatsapp: var(--whatsapp);
+  --color-danger: var(--danger);
+}
+
+@layer base {
+  html {
+    font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    direction: rtl;
+    text-align: right;
+    font-variant-numeric: lining-nums;
+  }
+
+  /* Enforce zero italics across the entire site per Section 4.2 */
+  *,
+  *::before,
+  *::after,
+  em,
+  i {
+    font-style: normal !important;
+  }
+}
+
+/* Typography Scale Classes per Section 4.2 */
+.typo-h1 {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+@media (min-width: 768px) {
+  .typo-h1 {
+    font-size: 34px;
+  }
+}
+
+.typo-h2 {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+@media (min-width: 768px) {
+  .typo-h2 {
+    font-size: 24px;
+  }
+}
+
+.typo-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.typo-body {
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.8;
+}
+@media (min-width: 768px) {
+  .typo-body {
+    font-size: 16px;
+  }
+}
+
+.typo-muted {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.typo-price {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+@media (min-width: 768px) {
+  .typo-price {
+    font-size: 22px;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Card Surface & Elevation per Section 4.4 */
+.broker-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.06);
+  transition: transform 180ms ease-out, box-shadow 180ms ease-out, border-color 180ms ease-out;
+}
+
+.broker-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(28, 25, 23, 0.10);
+}
+
+/* Hide scrollbar for category chip strip */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Respect prefers-reduced-motion per Section 4.4 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .broker-card-interactive:hover {
+    transform: none;
+  }
+}
